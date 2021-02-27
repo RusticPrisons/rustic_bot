@@ -1,15 +1,15 @@
+mod commands;
+use commands::{ban::*, kick::*, ping::*};
 use serenity::async_trait;
 use serenity::client::{Client, Context, EventHandler};
-use serenity::framework::standard::{
-    macros::{command, group},
-    CommandResult, StandardFramework,
-};
-use serenity::model::channel::Message;
+use serenity::framework::standard::{macros::group, StandardFramework};
 
-use serenity::client::bridge::gateway::{ShardId, ShardManager};
+use serenity::client::bridge::gateway::ShardManager;
 
 use serenity::prelude::*;
 
+use serenity::model::guild::Member;
+use serenity::model::id::GuildId;
 use std::sync::Arc;
 
 struct ShardManagerContainer;
@@ -22,10 +22,21 @@ impl TypeMapKey for ShardManagerContainer {
 #[commands(ping)]
 struct General;
 
+#[group]
+#[commands(ban, kick)]
+struct Moderation;
+
 struct Handler;
 
 #[async_trait]
-impl EventHandler for Handler {}
+impl EventHandler for Handler {
+    async fn guild_member_addition(&self, ctx: Context, _: GuildId, mut member: Member) {
+        match member.add_role(&ctx.http, 811279410597986344).await {
+            Ok(_) => (),
+            Err(err) => println!("failed to add role to user reason: {}!", err),
+        };
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -46,43 +57,4 @@ async fn main() {
     if let Err(why) = client.start_autosharded().await {
         println!("An error occurred while running the client: {:?}", why);
     }
-}
-
-#[command]
-async fn ping(ctx: &Context, msg: &Message) -> CommandResult {
-    let data = ctx.data.read().await;
-
-    let shard_manager = match data.get::<ShardManagerContainer>() {
-        Some(v) => v,
-        None => {
-            msg.reply(ctx, "There was a problem getting the shard manager")
-                .await?;
-
-            return Ok(());
-        }
-    };
-
-    let manager = shard_manager.lock().await;
-    let runners = manager.runners.lock().await;
-
-    let runner = match runners.get(&ShardId(ctx.shard_id)) {
-        Some(runner) => runner,
-        None => {
-            msg.reply(ctx, "No shard found").await?;
-
-            return Ok(());
-        }
-    };
-
-    let latency = match runner.latency {
-        Some(latency) => latency.as_micros(),
-        None => {
-            msg.reply(ctx, "Latency hasn't been intialized yet!")
-                .await?;
-            return Ok(());
-        }
-    };
-    msg.reply_ping(ctx, &format!("Pong at {}ms!", latency))
-        .await?;
-    Ok(())
 }
