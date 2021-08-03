@@ -44,7 +44,7 @@ async fn main() {
         .configure(|c| c.prefix("."))
         .group(&GENERAL_GROUP);
 
-    let token = "ODExMjg4MDA0NDY3NDkwODI2.YCwA1Q.0XfjnnMg9Rs6z4vrZPRuZBgKvNM";
+    let token = "";
     let mut client = Client::builder(token)
         .event_handler(Handler)
         .framework(framework)
